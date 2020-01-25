@@ -11,43 +11,61 @@ library(changepoint)
 
 ```
 
+##Raw minbymin data was read in, tidied and combined together into a single mega_dat table
 
 ```{r, read in data}
-dat <- read.csv(file = "data/minbymin_01.csv", header = TRUE)
 
-dat_tidy <- dat %>% 
-  as_tibble() %>% 
-  separate(time_new, into = c("day", "hour", "min", "sec"), sep = ":") %>% 
-  select(-sec)
+#read in minbymin data and tidy it up
 
-complete_days <- dat_tidy %>% 
-  group_by(day) %>% 
-  summarise(tot = n()) %>% 
-  filter(tot == "1440") %>% 
-  pull(., day)
-
-dat_filtered <- dat_tidy %>% filter(day %in% complete_days)
+files <- list.files(path = "data")[2:31]
 
 
-dat_filtered %>%  filter(day == "06SEP18") %>% ggplot(aes(x = time, y = minute_mets)) + geom_point()
+tidy_minbymin <- function(x){ 
+  dat <- read.csv(file = paste("data/", x, sep = ""), header = TRUE)
 
-dat_filtered %>% filter(day == "06SEP18") %>% ggplot(aes(x = time, y = ap_posture)) + geom_point()
+  dat_tidy <- dat %>% 
+    as_tibble() %>% 
+    separate(time_new, into = c("day", "hour", "min", "sec"), sep = ":") %>% #separate date:time var into columns
+    select(-sec) %>% #there is no second data
+    mutate(patient = substr(x, 10, 11)) # add patient data from file name
 
+  #List days that have 24hours of data
+  
+  complete_days <- dat_tidy %>% 
+    group_by(day) %>% 
+    summarise(tot = n()) %>% #total minbymin data per day
+    filter(tot == "1440") %>% #1440 min in 24 hrs
+    pull(., day)
 
+  #Filter out incomplete days
+  
+  dat_filtered <- dat_tidy %>%
+    filter(day %in% complete_days) %>%
+    mutate(order = paste(patient, day, sep = "_")) #this was added to separate days and patients with a single variables
 
+  return(dat_filtered)
+}
 
-#as.POSIXct(strptime("2011-03-27 01:30:00", "%Y-%m-%d %H:%M:%S"))
+mega_dat <- do.call(rbind, lapply(files, tidy_minbymin)) #this reads in, tidies, and binds all patient data
 
 
 ```
 
+##Sleep data was infered from activity data using the R package changepoint
 
 ```{r, sleep data for each day}
 
+#infer sleep and bed times from activity data (poorly)
+
 get_sleep_times <- function (x, y) {
   
-  pdata <- x %>% filter(day == y) %>% pull(., ap_posture) 
-  mdata <- x %>% filter(day == y) %>% pull(., minute_mets)
+  pdata <- x %>% filter(order == y) %>% pull(., ap_posture) #subset posture data for a single day for a single patient
+  mdata <- x %>% filter(order == y) %>% pull(., minute_mets) #subset activity data for a single day for a single patient
+  
+  #change points within the day are identified for posture data and activity data
+  #BinSeg is one available method
+  #Q = 2 forces identification of 2 change points 
+  #this is an unbiased approach
   
   p.pelt <- cpt.mean(pdata, method = "BinSeg", Q = 2)
   #plot(p.pelt, type = "l", cpt.col = "blue", xlab = "Index", cpt.width = 4)
@@ -56,26 +74,45 @@ get_sleep_times <- function (x, y) {
   #plot(m.pelt, type = "l", cpt.col = "blue", xlab = "Index", cpt.width = 4)
   cpts(m.pelt)
   
-  sleep_start <- cpts(m.pelt)[1]
-  sleep_end <- cpts(m.pelt)[2]
-  bed_start <- cpts(p.pelt)[1]
-  bed_end <- cpts(p.pelt)[2]
+  sleep_end <- cpts(m.pelt)[1] #in the morning
+  sleep_start <- cpts(m.pelt)[2] #in the evening
+  bed_end <- cpts(p.pelt)[1]
+  bed_start <- cpts(p.pelt)[2]
 
-  return(c(sleep_start, sleep_end, bed_start, bed_end))
+  return(c( sleep_end, sleep_start, bed_end, bed_start))
 }
 
 ```
 
-```{r, }
+##Other more meaningful Sleep data is calculated from the infered sleep and bed start and end times
 
-day_dat <- dat_filtered %>% 
-  group_by(day) %>% 
+```{r, tidy all the data}
+
+#infer sleep and bed start and stop times for each day, each patient
+
+mega_day_dat <- mega_dat%>% 
+  group_by(order) %>% # again, this separates days and patients
   summarise(n = n()) %>% 
   rowwise() %>% 
-  mutate(sleep_start = get_sleep_times(dat_filtered, day)[1], 
-         sleep_end = get_sleep_times(dat_filtered, day)[2], 
-         bed_start = get_sleep_times(dat_filtered, day)[3], 
-         bed_end = get_sleep_times(dat_filtered, day)[4])
+  mutate(sleep_end = get_sleep_times(mega_dat, order)[1], 
+         sleep_start = get_sleep_times(mega_dat, order)[2], 
+         bed_end = get_sleep_times(mega_dat, order)[3], 
+         bed_start = get_sleep_times(mega_dat, order)[4])
+
+#Calculate more useful varibles from sleep/bed start/end times
+
+sleep_dat <- mega_day_dat %>% 
+  ungroup() %>% 
+  mutate(last_nights_bedtime = lag(bed_start, order_by = order), 
+         last_nights_sleeptime = lag(sleep_start, order_by = order), #this created shifted column for combining the sleep time from the previous day such that the total length of a single sleep can be calculated for the previous night
+         min_awake = sleep_start - sleep_end, #minutes awake for that day
+         min_outta_bed = bed_start - bed_end, #minutes out of bed for that day
+         prev_sleep_min = 1440 - last_nights_sleeptime + sleep_end, #using the lagged column, total sleep minutes is calculated
+         prev_bed_min = 1440 - last_nights_bedtime + bed_end, 
+         SOL = sleep_start + 10 - bed_start, #this is wildly inacurate, often reporting patients fell asleep before lying down
+         sleep_eff = prev_sleep_min / prev_bed_min, #inacurate again, patients often spend more time sleeping than lying down
+         mid_sleep = (last_nights_sleeptime / 2) + last_nights_sleeptime, #find the mid point of the previous days sleep
+         mid_sleep = ifelse(mid_sleep >= 1440, mid_sleep - 1440, mid_sleep)) #correct if midpoint occurs in the current day
 
 
 ```
