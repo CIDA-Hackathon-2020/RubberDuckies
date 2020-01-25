@@ -1,0 +1,81 @@
+---
+title: "Hackathon2020Start"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(changepoint)
+
+```
+
+
+```{r, read in data}
+dat <- read.csv(file = "data/minbymin_01.csv", header = TRUE)
+
+dat_tidy <- dat %>% 
+  as_tibble() %>% 
+  separate(time_new, into = c("day", "hour", "min", "sec"), sep = ":") %>% 
+  select(-sec)
+
+complete_days <- dat_tidy %>% 
+  group_by(day) %>% 
+  summarise(tot = n()) %>% 
+  filter(tot == "1440") %>% 
+  pull(., day)
+
+dat_filtered <- dat_tidy %>% filter(day %in% complete_days)
+
+
+dat_filtered %>%  filter(day == "06SEP18") %>% ggplot(aes(x = time, y = minute_mets)) + geom_point()
+
+dat_filtered %>% filter(day == "06SEP18") %>% ggplot(aes(x = time, y = ap_posture)) + geom_point()
+
+
+
+
+#as.POSIXct(strptime("2011-03-27 01:30:00", "%Y-%m-%d %H:%M:%S"))
+
+
+```
+
+
+```{r, sleep data for each day}
+
+get_sleep_times <- function (x, y) {
+  
+  pdata <- x %>% filter(day == y) %>% pull(., ap_posture) 
+  mdata <- x %>% filter(day == y) %>% pull(., minute_mets)
+  
+  p.pelt <- cpt.mean(pdata, method = "BinSeg", Q = 2)
+  #plot(p.pelt, type = "l", cpt.col = "blue", xlab = "Index", cpt.width = 4)
+  cpts(p.pelt)
+  m.pelt <- cpt.meanvar(mdata, method = "BinSeg", Q = 2)
+  #plot(m.pelt, type = "l", cpt.col = "blue", xlab = "Index", cpt.width = 4)
+  cpts(m.pelt)
+  
+  sleep_start <- cpts(m.pelt)[1]
+  sleep_end <- cpts(m.pelt)[2]
+  bed_start <- cpts(p.pelt)[1]
+  bed_end <- cpts(p.pelt)[2]
+
+  return(c(sleep_start, sleep_end, bed_start, bed_end))
+}
+
+```
+
+```{r, }
+
+day_dat <- dat_filtered %>% 
+  group_by(day) %>% 
+  summarise(n = n()) %>% 
+  rowwise() %>% 
+  mutate(sleep_start = get_sleep_times(dat_filtered, day)[1], 
+         sleep_end = get_sleep_times(dat_filtered, day)[2], 
+         bed_start = get_sleep_times(dat_filtered, day)[3], 
+         bed_end = get_sleep_times(dat_filtered, day)[4])
+
+
+```
