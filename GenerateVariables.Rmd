@@ -90,14 +90,16 @@ get_sleep_times <- function (x, y) {
 
 #infer sleep and bed start and stop times for each day, each patient
 
-mega_day_dat <- mega_dat%>% 
+mega_day_dat <- mega_dat %>% 
   group_by(order) %>% # again, this separates days and patients
   summarise(n = n()) %>% 
   rowwise() %>% 
   mutate(sleep_end = get_sleep_times(mega_dat, order)[1], 
          sleep_start = get_sleep_times(mega_dat, order)[2], 
          bed_end = get_sleep_times(mega_dat, order)[3], 
-         bed_start = get_sleep_times(mega_dat, order)[4])
+         bed_start = get_sleep_times(mega_dat, order)[4],
+         bed_end = ifelse(is.na(bed_end) == TRUE, sleep_end, bed_end),
+         bed_start = ifelse(is.na(bed_start) == TRUE, sleep_start, bed_start))
 
 #Calculate more useful varibles from sleep/bed start/end times
 
@@ -114,5 +116,6 @@ sleep_dat <- mega_day_dat %>%
          mid_sleep = (last_nights_sleeptime / 2) + last_nights_sleeptime, #find the mid point of the previous days sleep
          mid_sleep = ifelse(mid_sleep >= 1440, mid_sleep - 1440, mid_sleep)) #correct if midpoint occurs in the current day
 
+saveRDS(sleep_dat, file = "data/combined_sleep_dat.txt")
 
 ```

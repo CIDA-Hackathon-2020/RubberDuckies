@@ -1,0 +1,98 @@
+---
+title: "CombineEfforts"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(cowplot)
+library(ggpubr)
+library(viridis)
+library(timeDate)
+
+```
+
+```{r, read in processed data}
+
+sleep_dat <- readRDS(file = "data/combined_sleep_dat.txt")
+sleep_dat <- sleep_dat %>% mutate(patient = substr(order, 1, 2), day = substr(order, 4, 10))
+active_dat <- readRDS(file = "data/active_dat.txt")
+active_dat <- active_dat %>% mutate(patient = substr(order, 1, 2), day = substr(order, 4, 10))
+
+all_dat <- active_dat %>% full_join(., sleep_dat)
+
+saveRDS(all_dat, "data/all_dat.txt")
+
+```
+
+```{r, weekend vs weekday}
+
+all_dat <- all_dat %>% mutate(weekday = ifelse(isWeekday(as.timeDate(as.Date(day, "%d%b%y"))) == TRUE, "Weekday", "Weekend"))
+
+my_comp <- list(c("yes", "no"))
+
+all_dat %>% ggplot(aes(x = weekday, y = prev_sleep_min, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% ggplot(aes(x = weekday, y = prev_bed_min, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% ggplot(aes(x = weekday, y = min_awake, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% ggplot(aes(x = weekday, y = min_outta_bed, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% filter(SOL != 10) %>% ggplot(aes(x = weekday, y = SOL, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% filter(sleep_eff != 1) %>% ggplot(aes(x = weekday, y = sleep_eff, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% ggplot(aes(x = weekday, y = mid_sleep, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE) 
+
+all_dat %>% ggplot(aes(x = weekday, y = lpa, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE)
+
+all_dat %>% ggplot(aes(x = weekday, y = mpa, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE)
+
+all_dat %>% ggplot(aes(x = weekday, y = mvpa, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE)
+
+all_dat %>% ggplot(aes(x = weekday, y = vpa, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE)
+
+all_dat %>% ggplot(aes(x = weekday, y = steps_day, fill = weekday)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + geom_point(position = "jitter", alpha = 0.25) + theme_cowplot() + stat_compare_means(comparisons = my_comp, method = "wilcox.test") + guides(fill = FALSE)
+
+
+```
+
+
+```{r, days of week}
+
+all_dat <- all_dat %>% mutate(dayofweek = weekdays(as.Date(day,"%d%b%y")))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = prev_sleep_min, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = prev_bed_min, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = min_awake, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")) 
+
+all_dat %>% ggplot(aes(x = dayofweek, y = min_outta_bed, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% filter(SOL != 10) %>% ggplot(aes(x = dayofweek, y = SOL, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% filter(sleep_eff != 1) %>% ggplot(aes(x = dayofweek, y = sleep_eff, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")) 
+
+all_dat %>% ggplot(aes(x = dayofweek, y = mid_sleep, fill = dayofweek)) + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = lpa, fill = dayofweek)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = mpa, fill = dayofweek)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = mvpa, fill = dayofweek)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = vpa, fill = dayofweek)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+all_dat %>% ggplot(aes(x = dayofweek, y = steps_day, fill = dayofweek)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + scale_x_discrete(limits=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+
+```
+
+```{r, demographics}
+
+
+
+```

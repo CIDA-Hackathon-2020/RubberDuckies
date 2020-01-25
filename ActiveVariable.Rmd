@@ -1,0 +1,92 @@
+---
+title: "DK_Hackathon"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Loading libraries
+library(readr)
+library(plyr)
+library(tidyverse)
+library(stringr)
+
+```
+
+```{r, generate active dat variables}
+mega_act <- readRDS("data/mega_min_dat.txt")
+
+
+#Calculating Moderate Physical Activity (MPA) by day. Any activity between 3 and 6 METS
+  ma_mpa <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get mpa/day
+    filter(minute_mets>=3 & minute_mets < 6) %>% #filtering by criteria for mpa
+    tally() #counting no. of mins by groups
+
+  names(ma_mpa)[2]<- "mpa" #changing column name
+
+#Calculating Vigorous Physical Activity (VPA) by day. Any activity >= 6 METs
+  ma_vpa <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get vpa/day
+    filter(minute_mets >= 6) %>% #filtering by criteria for mpa
+    tally() #counting no. of mins by groups
+
+  names(ma_vpa)[2]<- "vpa" #changing column name
+
+#Calculating Moderate to Vigorous Physical Activity. Any activity >=3 METs
+  ma_mvpa <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get mvpa/day
+    filter(minute_mets >= 3) %>% #filtering by criteria for mpa
+    tally() #counting no. of mins by groups
+
+  names(ma_mvpa)[2]<- "mvpa" #changing column name
+
+#Calculating Light Physical Activity. Any activity >= 1.5 and <3 METs
+  ma_lpa <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get lpa/day
+    filter(minute_mets>=1.5 & minute_mets < 3) %>% #filtering by criteria for mpa
+    tally() #counting no. of mins by groups
+
+  names(ma_lpa)[2]<- "lpa" #changing column name
+
+#Calculating sedentary time using ap_posture
+  ma_sed_p <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get sedentary time/day (in mins)
+    filter(ap_posture==0) %>% #filtering by criteria for posture
+    tally() #counting no. of mins by groups
+
+  names(ma_sed_p)[2]<- "sed_p" #changing column name
+
+#Calculating sedentary time using mets
+  ma_sed_m <- mega_act %>% 
+    group_by(order) %>% #grouping by date so can get sedentary time/day (in mins)
+    filter(minute_mets<1.5) %>% #filtering by criteria for posture
+    tally() #counting no. of mins by groups
+
+  names(ma_sed_m)[2]<- "sed_m" #changing column name
+
+#Calculating total steps per day 
+  ma_steps<- select(mega_act, order, minute_steps) %>%
+    group_by(order) %>% #grouping by order 
+    filter(minute_steps == max(minute_steps)) %>% #choosing the maximum step value of the day
+    unique()
+  
+#Since steps are cumulative, trying to subtract e.g. Day 2 steps - Day 1 to get steps for that day.
+  ma_steps <- ma_steps %>% 
+    mutate(lag= lag(minute_steps), #Adding a lag column that contains the steps in the row before
+           steps_day = ifelse(!is.na(lag) & lag <= minute_steps, 
+                              minute_steps - lag, 
+                              minute_steps))%>% # Subtracting lag from minute_steps only if it is smaller or not NA
+    select(-minute_steps, -lag) #removing extraneous columns from table 
+  
+
+#Joining all variables into one table by date
+  totact<- join_all(
+    list(ma_lpa, ma_mpa,ma_mvpa,ma_vpa, ma_sed_p, ma_sed_m, ma_steps), 
+    by='order', type='left') %>% 
+    as_tibble()
+
+saveRDS(totact, file = "data/active_dat.txt")
+
+
+```
