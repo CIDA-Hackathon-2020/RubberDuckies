@@ -13,7 +13,11 @@ library(timeDate)
 
 ```
 
+##Time to put it all together
+
 ```{r, read in processed data}
+
+#Combine the two types of variable datasets
 
 sleep_dat <- readRDS(file = "data/combined_sleep_dat.txt")
 sleep_dat <- sleep_dat %>% mutate(patient = substr(order, 1, 2), day = substr(order, 4, 10))
@@ -26,7 +30,11 @@ saveRDS(all_dat, "data/all_dat.txt")
 
 ```
 
+##Are there trends on weekends vs weekdays
+
 ```{r, weekend vs weekday}
+
+
 
 all_dat <- all_dat %>% mutate(weekday = ifelse(isWeekday(as.timeDate(as.Date(day, "%d%b%y"))) == TRUE, "Weekday", "Weekend"))
 
@@ -59,6 +67,7 @@ all_dat %>% ggplot(aes(x = weekday, y = steps_day, fill = weekday)) + geom_violi
 
 ```
 
+##What about across days of the week?
 
 ```{r, days of week}
 
@@ -91,8 +100,49 @@ all_dat %>% ggplot(aes(x = dayofweek, y = steps_day, fill = dayofweek)) + geom_v
 
 ```
 
+##Oh yeah... that Demographic file...
+
 ```{r, demographics}
+dem <- read.csv("data/demographics.csv", header = TRUE) %>% as_tibble() %>% filter(id != 24)
+patient_num <- all_dat %>% pull(., patient) %>% unique()
+dem <- dem %>% mutate(patient = patient_num)
+
+all_dat <- all_dat %>% left_join(., dem)
+
+my_race_comp <- list(c("White", "Black or African American"), c("white", "American Indian or Alaska Native"), c("Black or African American", "American Indian or Alaska Native")) 
+
+all_dat %>% ggplot(aes(x = Race, y = steps_day, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
 
 
+all_dat %>% ggplot(aes(x = Race, y = mpa, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+ 
+
+all_dat %>% ggplot(aes(x = Race, y = lpa, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+ 
+all_dat %>% ggplot(aes(x = Race, y = min_awake, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+
+
+all_dat %>% ggplot(aes(x = Race, y = min_outta_bed, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+ 
+
+all_dat %>% ggplot(aes(x = Race, y = sed_p, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+
+all_dat %>% ggplot(aes(x = Race, y = sed_m, fill = Race)) + geom_violin() + geom_violin() + geom_boxplot(fill = "White", width = 0.1) + theme_cowplot() + guides(fill = FALSE) + stat_compare_means(comparisons = my_race_comp, method = "wilcox.test")
+
+all_dat %>% ggplot(aes(x = age, y = sed_p)) + geom_point() + geom_smooth(aes(x = age, y = sed_p), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot()
+
+all_dat %>% ggplot(aes(x = age, y = sed_m)) + geom_point() + geom_smooth(aes(x = age, y = sed_m), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot() + stat_cor(method = "spearman")
+
+all_dat %>% ggplot(aes(x = age, y = mpa)) + geom_point() + geom_smooth(aes(x = age, y = mpa), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot()
+
+all_dat %>% ggplot(aes(x = age, y = mpa)) + geom_point() + geom_smooth(aes(x = age, y = mpa), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot() + stat_cor(method = "spearman")
+
+all_dat %>% ggplot(aes(x = BMI, y = sed_p)) + geom_point() + geom_smooth(aes(x = BMI, y = sed_p), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot()
+
+all_dat %>% ggplot(aes(x = BMI, y = sed_m)) + geom_point() + geom_smooth(aes(x = BMI, y = sed_m), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot() + stat_cor(method = "spearman")
+
+all_dat %>% ggplot(aes(x = BMI, y = mpa)) + geom_point() + geom_smooth(aes(x = BMI, y = mpa), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot()
+
+all_dat %>% ggplot(aes(x = BMI, y = mpa)) + geom_point() + geom_smooth(aes(x = BMI, y = mpa), method = lm, se = FALSE, inherit.aes = FALSE) + theme_cowplot() + stat_cor(method = "spearman")
 
 ```

@@ -98,7 +98,7 @@ mega_day_dat <- mega_dat %>%
          sleep_start = get_sleep_times(mega_dat, order)[2], 
          bed_end = get_sleep_times(mega_dat, order)[3], 
          bed_start = get_sleep_times(mega_dat, order)[4],
-         bed_end = ifelse(is.na(bed_end) == TRUE, sleep_end, bed_end),
+         bed_end = ifelse(is.na(bed_end) == TRUE, sleep_end, bed_end), ##Super cheaty, if bed times aren't detected, I just assign them to be the same as sleep times
          bed_start = ifelse(is.na(bed_start) == TRUE, sleep_start, bed_start))
 
 #Calculate more useful varibles from sleep/bed start/end times
